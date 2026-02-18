@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API Test</title>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        .success { color: green; }
+        .error { color: red; }
+        pre { background: #f4f4f4; padding: 10px; }
+    </style>
+</head>
+<body>
+    <h1>API Connection Test</h1>
+    
+    <button onclick="testAPI()">Test API Connection</button>
+    
+    <div id="results"></div>
+
+    <script>
+        async function testAPI() {
+            const results = document.getElementById('results');
+            results.innerHTML = 'Testing...';
+            
+            const endpoints = [
+                'http://127.0.0.1:8000/api/sales/test',
+                'http://127.0.0.1:8000/api/health',
+                'http://127.0.0.1:8000/api/sales/summary'
+            ];
+            
+            let html = '<h2>Results:</h2>';
+            
+            for (const endpoint of endpoints) {
+                try {
+                    const response = await fetch(endpoint, {
+                        method: 'GET',
+                        mode: 'cors',
+                        headers: {
+                            'Accept': 'application/json'
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        html += `<p class="success">✅ ${endpoint} - Success</p>`;
+                        html += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+                    } else {
+                        html += `<p class="error">❌ ${endpoint} - HTTP ${response.status}</p>`;
+                    }
+                } catch (error) {
+                    html += `<p class="error">❌ ${endpoint} - Failed: ${error.message}</p>`;
+                }
+            }
+            
+            results.innerHTML = html;
+        }
+        
+        // Auto test on page load
+        testAPI();
+    </script>
+</body>
+</html>

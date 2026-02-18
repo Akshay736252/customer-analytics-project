@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API Test</title>
+</head>
+<body>
+    <h1>Testing API Connection</h1>
+    <div id="results"></div>
+
+    <script>
+        async function testAPI() {
+            const results = document.getElementById('results');
+            results.innerHTML = 'Testing...';
+            
+            try {
+                // Test health endpoint
+                const healthRes = await fetch('http://127.0.0.1:8000/api/health');
+                const health = await healthRes.json();
+                
+                // Test sales endpoint
+                const salesRes = await fetch('http://127.0.0.1:8000/api/sales/summary');
+                const sales = await salesRes.json();
+                
+                results.innerHTML = `
+                    <h2>✅ API is working!</h2>
+                    <pre>Health: ${JSON.stringify(health, null, 2)}</pre>
+                    <pre>Sales: ${JSON.stringify(sales, null, 2)}</pre>
+                `;
+            } catch (error) {
+                results.innerHTML = `
+                    <h2 style="color: red">❌ API Error</h2>
+                    <p>${error.message}</p>
+                    <p>Make sure FastAPI is running on port 8000</p>
+                `;
+            }
+        }
+        
+        testAPI();
+    </script>
+</body>
+</html>

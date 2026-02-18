@@ -1,0 +1,1431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Analytics Dashboard</title>
+    <!-- Add Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.2/axios.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8fafc;
+            min-height: 100vh;
+        }
+
+        /* Modern Sidebar */
+        .app-container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: 280px;
+            background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+            color: white;
+            padding: 2rem 1.5rem;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            transition: all 0.3s;
+            z-index: 1000;
+        }
+
+        .sidebar.collapsed {
+            width: 80px;
+            padding: 2rem 0.5rem;
+        }
+
+        .sidebar.collapsed .logo span,
+        .sidebar.collapsed .nav-item span {
+            display: none;
+        }
+
+        .sidebar.collapsed .nav-item {
+            justify-content: center;
+            padding: 12px 0;
+        }
+
+        .sidebar.collapsed .nav-item i {
+            margin: 0;
+            font-size: 1.5rem;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 2.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .logo i {
+            font-size: 2rem;
+            color: #818cf8;
+        }
+
+        .logo span {
+            font-size: 1.25rem;
+            font-weight: 600;
+            background: linear-gradient(135deg, #fff 0%, #a5b4fc 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            margin: 4px 0;
+            border-radius: 12px;
+            color: #94a3b8;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .nav-item:hover, .nav-item.active {
+            background: rgba(129, 140, 248, 0.1);
+            color: #818cf8;
+        }
+
+        .nav-item i {
+            width: 24px;
+            font-size: 1.2rem;
+        }
+
+        .main-content {
+            flex: 1;
+            margin-left: 280px;
+            padding: 2rem;
+            transition: margin-left 0.3s;
+        }
+
+        .main-content.expanded {
+            margin-left: 80px;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .page-title h1 {
+            font-size: 2rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 0.5rem;
+        }
+
+        .page-title p {
+            color: #64748b;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border-radius: 10px;
+            border: none;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+            font-size: 0.95rem;
+        }
+
+        .btn-primary {
+            background: #818cf8;
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: #6366f1;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px -10px #818cf8;
+        }
+
+        .btn-outline {
+            background: white;
+            border: 1px solid #e2e8f0;
+            color: #64748b;
+        }
+
+        .btn-outline:hover:not(:disabled) {
+            background: #f8fafc;
+            border-color: #818cf8;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            background: #dc2626;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 20px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            transition: all 0.3s;
+            border: 1px solid #e2e8f0;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1);
+        }
+
+        .stat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .stat-title {
+            color: #64748b;
+            font-size: 0.875rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+
+        .stat-icon.purple {
+            background: #ede9fe;
+            color: #818cf8;
+        }
+
+        .stat-icon.blue {
+            background: #dbeafe;
+            color: #3b82f6;
+        }
+
+        .stat-icon.green {
+            background: #dcfce7;
+            color: #22c55e;
+        }
+
+        .stat-icon.orange {
+            background: #fff3cd;
+            color: #f97316;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-trend {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #64748b;
+            font-size: 0.875rem;
+        }
+
+        .trend-up {
+            color: #22c55e;
+            background: #dcfce7;
+            padding: 4px 8px;
+            border-radius: 20px;
+        }
+
+        .trend-down {
+            color: #ef4444;
+            background: #fee2e2;
+            padding: 4px 8px;
+            border-radius: 20px;
+        }
+
+        /* Charts Grid */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .chart-card {
+            background: white;
+            border-radius: 20px;
+            padding: 1.5rem;
+            border: 1px solid #e2e8f0;
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .chart-header h3 {
+            color: #1e293b;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .chart-header .badge {
+            background: #f1f5f9;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            color: #64748b;
+        }
+
+        .chart-container {
+            height: 300px;
+            position: relative;
+        }
+
+        /* Tables Grid */
+        .tables-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .table-card {
+            background: white;
+            border-radius: 20px;
+            padding: 1.5rem;
+            border: 1px solid #e2e8f0;
+        }
+
+        .table-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .table-header h3 {
+            color: #1e293b;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .table-header a {
+            color: #818cf8;
+            text-decoration: none;
+            font-size: 0.875rem;
+            cursor: pointer;
+        }
+
+        .table-header a:hover {
+            text-decoration: underline;
+        }
+
+        .table-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            text-align: left;
+            padding: 12px;
+            color: #64748b;
+            font-weight: 500;
+            font-size: 0.875rem;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        td {
+            padding: 12px;
+            color: #1e293b;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .product-name {
+            font-weight: 500;
+        }
+
+        .product-category {
+            font-size: 0.75rem;
+            color: #64748b;
+        }
+
+        .amount {
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .badge-success {
+            background: #dcfce7;
+            color: #166534;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .badge-warning {
+            background: #fff3cd;
+            color: #856404;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .badge-danger {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .badge-info {
+            background: #dbeafe;
+            color: #1e40af;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        /* Loading Spinner */
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #f1f5f9;
+            border-top-color: #818cf8;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255,255,255,0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .loading-overlay.active {
+            display: flex;
+        }
+
+        /* Progress Bar */
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: #e2e8f0;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 10000;
+            display: none;
+        }
+
+        .progress-bar.active {
+            display: block;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #818cf8;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        /* Error Message */
+        .error-message {
+            background: #fee2e2;
+            border: 1px solid #fecaca;
+            color: #991b1b;
+            padding: 1rem;
+            border-radius: 10px;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            display: none;
+        }
+
+        .error-message.active {
+            display: flex;
+        }
+
+        .error-close {
+            cursor: pointer;
+            font-size: 1.2rem;
+        }
+
+        /* Date Range Picker */
+        .date-range {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            background: white;
+            padding: 5px 15px;
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .date-range input {
+            border: none;
+            padding: 8px;
+            border-radius: 5px;
+            font-size: 0.9rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .charts-grid, .tables-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                position: fixed;
+            }
+            .sidebar.mobile-open {
+                transform: translateX(0);
+            }
+            .main-content {
+                margin-left: 0;
+            }
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+
+        /* Toggle Button */
+        .menu-toggle {
+            display: none;
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1001;
+            background: #818cf8;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 10px;
+            cursor: pointer;
+        }
+
+        @media (max-width: 768px) {
+            .menu-toggle {
+                display: block;
+            }
+        }
+
+        /* Export Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 10000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 20px;
+            max-width: 500px;
+            width: 90%;
+        }
+
+        .modal-content h3 {
+            margin-bottom: 1rem;
+        }
+
+        .modal-content select,
+        .modal-content button {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .modal-content button {
+            background: #818cf8;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        .modal-close {
+            float: right;
+            cursor: pointer;
+            font-size: 1.5rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <!-- Progress Bar -->
+    <div class="progress-bar" id="progressBar">
+        <div class="progress-fill" id="progressFill"></div>
+    </div>
+
+    <!-- Menu Toggle for Mobile -->
+    <button class="menu-toggle" onclick="toggleMobileMenu()">
+        <i class="fas fa-bars"></i>
+    </button>
+
+    <!-- Export Modal -->
+    <div class="modal" id="exportModal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal()">&times;</span>
+            <h3>Export Data</h3>
+            <select id="exportType">
+                <option value="csv">CSV</option>
+                <option value="json">JSON</option>
+                <option value="excel">Excel</option>
+            </select>
+            <select id="exportData">
+                <option value="sales">Sales Data</option>
+                <option value="customers">Customer Segments</option>
+                <option value="products">Top Products</option>
+                <option value="forecast">Forecast Data</option>
+            </select>
+            <button onclick="exportData()">Download</button>
+        </div>
+    </div>
+
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar" id="sidebar">
+            <div class="logo">
+                <i class="fas fa-chart-line"></i>
+                <span>Analytics Pro</span>
+            </div>
+            
+            <div class="nav-item active" onclick="switchTab('dashboard')">
+                <i class="fas fa-home"></i>
+                <span>Dashboard</span>
+            </div>
+            <div class="nav-item" onclick="switchTab('customers')">
+                <i class="fas fa-users"></i>
+                <span>Customers</span>
+            </div>
+            <div class="nav-item" onclick="switchTab('sales')">
+                <i class="fas fa-chart-bar"></i>
+                <span>Sales</span>
+            </div>
+            <div class="nav-item" onclick="switchTab('products')">
+                <i class="fas fa-cube"></i>
+                <span>Products</span>
+            </div>
+            <div class="nav-item" onclick="switchTab('forecast')">
+                <i class="fas fa-clock"></i>
+                <span>Forecast</span>
+            </div>
+            <div class="nav-item" onclick="switchTab('geography')">
+                <i class="fas fa-globe"></i>
+                <span>Geography</span>
+            </div>
+            <div class="nav-item" onclick="toggleSidebar()">
+                <i class="fas fa-chevron-left"></i>
+                <span>Collapse</span>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content" id="mainContent">
+            <!-- Header -->
+            <div class="header">
+                <div class="page-title">
+                    <h1 id="pageTitle">Dashboard Overview</h1>
+                    <p>
+                        <i class="fas fa-calendar"></i>
+                        <span id="currentDate"></span>
+                        <span id="lastUpdated" style="margin-left: 1rem; color: #94a3b8;">
+                            <i class="fas fa-clock"></i> Updated just now
+                        </span>
+                    </p>
+                </div>
+                <div class="header-actions">
+                    <div class="date-range">
+                        <i class="fas fa-calendar-alt"></i>
+                        <input type="date" id="startDate" onchange="applyDateFilter()">
+                        <span>to</span>
+                        <input type="date" id="endDate" onchange="applyDateFilter()">
+                    </div>
+                    <button class="btn btn-outline" onclick="showExportModal()">
+                        <i class="fas fa-download"></i>
+                        Export
+                    </button>
+                    <button class="btn btn-primary" onclick="refreshData()" id="refreshBtn">
+                        <i class="fas fa-sync-alt" id="refreshIcon"></i>
+                        <span id="refreshText">Refresh</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Error Message -->
+            <div class="error-message" id="errorMessage">
+                <span id="errorText"></span>
+                <span class="error-close" onclick="hideError()">&times;</span>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="stats-grid" id="statsGrid"></div>
+
+            <!-- Charts Grid -->
+            <div class="charts-grid">
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3><i class="fas fa-chart-line" style="color: #818cf8; margin-right: 8px;"></i>Daily Sales Trend</h3>
+                        <span class="badge" id="salesBadge">Last 30 days</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="salesChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3><i class="fas fa-pie-chart" style="color: #818cf8; margin-right: 8px;"></i>Customer Segments</h3>
+                        <span class="badge" id="segmentsBadge">RFM Analysis</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="segmentsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tables Grid -->
+            <div class="tables-grid">
+                <div class="table-card">
+                    <div class="table-header">
+                        <h3><i class="fas fa-crown" style="color: #f59e0b; margin-right: 8px;"></i>Top Products</h3>
+                        <a onclick="loadMoreProducts()">View all <i class="fas fa-arrow-right"></i></a>
+                    </div>
+                    <div class="table-container">
+                        <table id="productsTable">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Revenue</th>
+                                    <th>Units Sold</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="productsBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="table-card">
+                    <div class="table-header">
+                        <h3><i class="fas fa-exclamation-triangle" style="color: #ef4444; margin-right: 8px;"></i>At Risk Customers</h3>
+                        <a onclick="loadMoreRiskCustomers()">View all <i class="fas fa-arrow-right"></i></a>
+                    </div>
+                    <div class="table-container">
+                        <table id="riskTable">
+                            <thead>
+                                <tr>
+                                    <th>Customer ID</th>
+                                    <th>Value</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="riskBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Forecast Chart -->
+            <div class="chart-card" style="margin-top: 1.5rem;">
+                <div class="chart-header">
+                    <h3><i class="fas fa-chart-line" style="color: #10b981; margin-right: 8px;"></i>Sales Forecast (Next 30 Days)</h3>
+                    <span class="badge" id="forecastBadge">Predictions</span>
+                </div>
+                <div class="chart-container" style="height: 400px;">
+                    <canvas id="forecastChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // =============================================
+        // CONFIGURATION
+        // =============================================
+        const API_BASE = 'http://127.0.0.1:8000/api';
+        let charts = {};
+        let refreshInterval;
+        let currentTab = 'dashboard';
+        let productLimit = 5;
+        let riskLimit = 5;
+        let dateFilter = {
+            start: null,
+            end: null
+        };
+
+        // =============================================
+        // INITIALIZATION
+        // =============================================
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set current date
+            document.getElementById('currentDate').innerHTML = new Date().toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+
+            // Set default dates
+            const today = new Date();
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(today.getDate() - 30);
+            
+            document.getElementById('startDate').value = thirtyDaysAgo.toISOString().split('T')[0];
+            document.getElementById('endDate').value = today.toISOString().split('T')[0];
+
+            // Load initial data
+            refreshData();
+
+            // Auto refresh every 5 minutes
+            refreshInterval = setInterval(refreshData, 300000);
+        });
+
+        // =============================================
+        // DATA LOADING FUNCTIONS
+        // =============================================
+        async function refreshData() {
+            showLoading();
+            updateProgress(10);
+            
+            try {
+                document.getElementById('refreshIcon').className = 'fas fa-sync-alt fa-spin';
+                document.getElementById('refreshText').innerText = 'Loading...';
+                
+                // Load all data in parallel
+                await Promise.all([
+                    loadStats().catch(e => handleError('Stats', e)),
+                    loadSalesChart().catch(e => handleError('Sales Chart', e)),
+                    loadSegmentsChart().catch(e => handleError('Segments Chart', e)),
+                    loadProducts().catch(e => handleError('Products', e)),
+                    loadAtRiskCustomers().catch(e => handleError('Risk Customers', e)),
+                    loadForecastChart().catch(e => handleError('Forecast', e))
+                ]);
+                
+                updateProgress(100);
+                document.getElementById('lastUpdated').innerHTML = 
+                    `<i class="fas fa-clock"></i> Updated ${new Date().toLocaleTimeString()}`;
+                hideError();
+                
+            } catch (error) {
+                showError('Failed to load data: ' + error.message);
+            } finally {
+                document.getElementById('refreshIcon').className = 'fas fa-sync-alt';
+                document.getElementById('refreshText').innerText = 'Refresh';
+                hideLoading();
+            }
+        }
+
+        async function loadStats() {
+            updateProgress(20);
+            
+            try {
+                const [salesRes, customerRes, forecastRes] = await Promise.all([
+                    axios.get(`${API_BASE}/sales/summary`),
+                    axios.get(`${API_BASE}/customers/rfm/stats/overview`),
+                    axios.get(`${API_BASE}/forecast/summary`)
+                ]);
+
+                const statsGrid = document.getElementById('statsGrid');
+                
+                // Calculate trends (mock data - replace with actual trend calculation)
+                const revenueTrend = ((salesRes.data.total_revenue / 1000000) * 100).toFixed(1);
+                const customerTrend = ((customerRes.data.total_customers / 1000) * 100).toFixed(1);
+                
+                statsGrid.innerHTML = `
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <span class="stat-title">Total Revenue</span>
+                            <div class="stat-icon purple">
+                                <i class="fas fa-dollar-sign"></i>
+                            </div>
+                        </div>
+                        <div class="stat-value">$${formatNumber(salesRes.data.total_revenue)}</div>
+                        <div class="stat-trend">
+                            <span class="trend-up"><i class="fas fa-arrow-up"></i> +${revenueTrend}%</span>
+                            vs last period
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <span class="stat-title">Total Customers</span>
+                            <div class="stat-icon blue">
+                                <i class="fas fa-users"></i>
+                            </div>
+                        </div>
+                        <div class="stat-value">${formatNumber(customerRes.data.total_customers)}</div>
+                        <div class="stat-trend">
+                            <span class="trend-up"><i class="fas fa-arrow-up"></i> +${customerTrend}%</span>
+                            vs last period
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <span class="stat-title">Avg Order Value</span>
+                            <div class="stat-icon green">
+                                <i class="fas fa-shopping-cart"></i>
+                            </div>
+                        </div>
+                        <div class="stat-value">$${formatNumber(salesRes.data.avg_order_value)}</div>
+                        <div class="stat-trend">
+                            <span class="trend-up"><i class="fas fa-arrow-up"></i> +5.2%</span>
+                            vs last period
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <span class="stat-title">90-Day Forecast</span>
+                            <div class="stat-icon orange">
+                                <i class="fas fa-chart-line"></i>
+                            </div>
+                        </div>
+                        <div class="stat-value">$${formatNumber(forecastRes.data.total_forecast || 0)}</div>
+                        <div class="stat-trend">
+                            <span class="trend-up"><i class="fas fa-arrow-up"></i> +8.2%</span>
+                            expected growth
+                        </div>
+                    </div>
+                `;
+                
+                updateProgress(40);
+                
+            } catch (error) {
+                console.error('Stats error:', error);
+                throw error;
+            }
+        }
+
+        async function loadSalesChart() {
+            try {
+                const res = await axios.get(`${API_BASE}/sales/daily?days=30`);
+                let data = res.data;
+                
+                // Reverse to show chronological order
+                data = data.reverse();
+                
+                document.getElementById('salesBadge').innerText = `${data.length} days`;
+
+                if (charts.sales) charts.sales.destroy();
+
+                const ctx = document.getElementById('salesChart').getContext('2d');
+                charts.sales = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.map(d => d.date),
+                        datasets: [{
+                            label: 'Revenue',
+                            data: data.map(d => d.revenue),
+                            borderColor: '#818cf8',
+                            backgroundColor: 'rgba(129, 140, 248, 0.1)',
+                            tension: 0.4,
+                            fill: true,
+                            pointBackgroundColor: '#818cf8',
+                            pointBorderColor: 'white',
+                            pointBorderWidth: 2,
+                            pointRadius: 4,
+                            pointHoverRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return `$${context.raw.toFixed(2)}`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: { color: '#e2e8f0' },
+                                ticks: {
+                                    callback: function(value) {
+                                        return '$' + value;
+                                    }
+                                }
+                            }
+                        },
+                        onClick: (event, items) => {
+                            if (items.length > 0) {
+                                const index = items[0].index;
+                                const date = data[index].date;
+                                showDayDetails(date, data[index].revenue);
+                            }
+                        }
+                    }
+                });
+                
+                updateProgress(60);
+                
+            } catch (error) {
+                console.error('Sales chart error:', error);
+                document.getElementById('salesBadge').innerText = 'Error loading';
+            }
+        }
+
+        async function loadSegmentsChart() {
+            try {
+                const res = await axios.get(`${API_BASE}/customers/segments`);
+                const data = res.data.slice(0, 5);
+                
+                document.getElementById('segmentsBadge').innerText = `${data.length} segments`;
+
+                if (charts.segments) charts.segments.destroy();
+
+                const ctx = document.getElementById('segmentsChart').getContext('2d');
+                charts.segments = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: data.map(d => {
+                            const name = d.segment.split(' ').pop();
+                            return name.replace(/[^\w\s]/g, '');
+                        }),
+                        datasets: [{
+                            data: data.map(d => d.revenue_percentage),
+                            backgroundColor: [
+                                '#818cf8',
+                                '#f59e0b',
+                                '#10b981',
+                                '#ef4444',
+                                '#8b5cf6'
+                            ],
+                            borderWidth: 0,
+                            hoverOffset: 10
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '70%',
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: { 
+                                    usePointStyle: true, 
+                                    boxWidth: 8,
+                                    padding: 20
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return `${context.raw.toFixed(1)}% of revenue`;
+                                    }
+                                }
+                            }
+                        },
+                        onClick: (event, items) => {
+                            if (items.length > 0) {
+                                const index = items[0].dataIndex;
+                                const segment = data[index];
+                                showSegmentDetails(segment);
+                            }
+                        }
+                    }
+                });
+                
+                updateProgress(80);
+                
+            } catch (error) {
+                console.error('Segments chart error:', error);
+                document.getElementById('segmentsBadge').innerText = 'Error loading';
+            }
+        }
+
+        async function loadForecastChart() {
+            try {
+                const res = await axios.get(`${API_BASE}/forecast/daily?days=30`);
+                const data = res.data;
+                
+                document.getElementById('forecastBadge').innerText = 'Next 30 days';
+
+                if (charts.forecast) charts.forecast.destroy();
+
+                const ctx = document.getElementById('forecastChart').getContext('2d');
+                charts.forecast = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.map(d => d.date),
+                        datasets: [
+                            {
+                                label: 'Predicted Revenue',
+                                data: data.map(d => d.predicted_revenue),
+                                borderColor: '#10b981',
+                                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                tension: 0.4,
+                                fill: true,
+                                pointRadius: 3,
+                                pointHoverRadius: 5
+                            },
+                            {
+                                label: 'Upper Bound',
+                                data: data.map(d => d.confidence_upper),
+                                borderColor: 'rgba(16, 185, 129, 0.3)',
+                                borderDash: [5, 5],
+                                fill: false,
+                                pointRadius: 0
+                            },
+                            {
+                                label: 'Lower Bound',
+                                data: data.map(d => d.confidence_lower),
+                                borderColor: 'rgba(16, 185, 129, 0.3)',
+                                borderDash: [5, 5],
+                                fill: false,
+                                pointRadius: 0
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return `$${context.raw.toFixed(2)}`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: function(value) {
+                                        return '$' + value;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+                
+            } catch (error) {
+                console.error('Forecast chart error:', error);
+            }
+        }
+
+        async function loadProducts(limit = 5) {
+            try {
+                const res = await axios.get(`${API_BASE}/sales/products/top?limit=${limit}`);
+                const data = res.data;
+
+                let html = '';
+                data.forEach((product, index) => {
+                    const revenue = product.total_revenue || 0;
+                    const quantity = product.total_quantity || 0;
+                    
+                    html += `
+                        <tr>
+                            <td>
+                                <div class="product-name">${product.description.substring(0, 30)}${product.description.length > 30 ? '...' : ''}</div>
+                                <div class="product-category">Rank #${index + 1}</div>
+                            </td>
+                            <td class="amount">$${formatNumber(revenue)}</td>
+                            <td>${formatNumber(quantity)}</td>
+                            <td>
+                                <button class="btn btn-outline" style="padding: 5px 10px;" onclick="showProductDetails('${product.description}')">
+                                    <i class="fas fa-chart-bar"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                document.getElementById('productsBody').innerHTML = html;
+                
+            } catch (error) {
+                console.error('Products error:', error);
+                document.getElementById('productsBody').innerHTML = `
+                    <tr>
+                        <td colspan="4" style="text-align: center; color: #ef4444;">
+                            <i class="fas fa-exclamation-circle"></i> Error loading products
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        async function loadAtRiskCustomers(limit = 5) {
+            try {
+                const res = await axios.get(`${API_BASE}/customers/rfm/at-risk?limit=${limit}`);
+                const data = res.data;
+
+                let html = '';
+                data.forEach(customer => {
+                    const badgeClass = customer.recency > 90 ? 'badge-danger' : 
+                                      customer.recency > 60 ? 'badge-warning' : 'badge-info';
+                    
+                    html += `
+                        <tr>
+                            <td>${customer.customerid.substring(0, 8)}...</td>
+                            <td class="amount">$${formatNumber(customer.monetary)}</td>
+                            <td><span class="${badgeClass}">${customer.segment.split(' ').pop()}</span></td>
+                            <td>
+                                <button class="btn btn-outline" style="padding: 5px 10px;" onclick="showCustomerDetails('${customer.customerid}')">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                document.getElementById('riskBody').innerHTML = html;
+                
+            } catch (error) {
+                console.error('Risk customers error:', error);
+                document.getElementById('riskBody').innerHTML = `
+                    <tr>
+                        <td colspan="4" style="text-align: center; color: #ef4444;">
+                            <i class="fas fa-exclamation-circle"></i> Error loading customers
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        // =============================================
+        // UI HELPER FUNCTIONS
+        // =============================================
+        function formatNumber(num) {
+            if (!num) return '0';
+            if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+            if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+            return num.toFixed(0);
+        }
+
+        function showLoading() {
+            document.getElementById('loadingOverlay').classList.add('active');
+            document.getElementById('progressBar').classList.add('active');
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingOverlay').classList.remove('active');
+            setTimeout(() => {
+                document.getElementById('progressBar').classList.remove('active');
+                document.getElementById('progressFill').style.width = '0%';
+            }, 500);
+        }
+
+        function updateProgress(percent) {
+            document.getElementById('progressFill').style.width = percent + '%';
+        }
+
+        function showError(message) {
+            document.getElementById('errorText').innerText = message;
+            document.getElementById('errorMessage').classList.add('active');
+        }
+
+        function hideError() {
+            document.getElementById('errorMessage').classList.remove('active');
+        }
+
+        function handleError(component, error) {
+            console.error(`${component} error:`, error);
+            showError(`Error loading ${component}`);
+        }
+
+        // =============================================
+        // INTERACTION FUNCTIONS
+        // =============================================
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.getElementById('mainContent');
+            sidebar.classList.toggle('collapsed');
+            mainContent.classList.toggle('expanded');
+        }
+
+        function toggleMobileMenu() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('mobile-open');
+        }
+
+        function switchTab(tab) {
+            currentTab = tab;
+            document.getElementById('pageTitle').innerText = 
+                tab.charAt(0).toUpperCase() + tab.slice(1) + ' Overview';
+            
+            // Update active nav item
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            event.currentTarget.classList.add('active');
+            
+            // Close mobile menu
+            document.getElementById('sidebar').classList.remove('mobile-open');
+            
+            // Load tab-specific data
+            if (tab === 'customers') {
+                loadMoreRiskCustomers(20);
+            } else if (tab === 'products') {
+                loadMoreProducts(20);
+            }
+        }
+
+        function applyDateFilter() {
+            dateFilter.start = document.getElementById('startDate').value;
+            dateFilter.end = document.getElementById('endDate').value;
+            refreshData();
+        }
+
+        function showExportModal() {
+            document.getElementById('exportModal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('exportModal').classList.remove('active');
+        }
+
+        function exportData() {
+            const type = document.getElementById('exportType').value;
+            const dataType = document.getElementById('exportData').value;
+            
+            // Mock export - in real implementation, this would call an API
+            alert(`Exporting ${dataType} as ${type}...`);
+            closeModal();
+        }
+
+        function loadMoreProducts() {
+            productLimit += 5;
+            loadProducts(productLimit);
+        }
+
+        function loadMoreRiskCustomers() {
+            riskLimit += 5;
+            loadAtRiskCustomers(riskLimit);
+        }
+
+        function showProductDetails(product) {
+            alert(`Showing details for: ${product}`);
+            // In real implementation, this would open a modal with product details
+        }
+
+        function showCustomerDetails(customerId) {
+            alert(`Showing details for customer: ${customerId}`);
+            // In real implementation, this would open a modal with customer details
+        }
+
+        function showDayDetails(date, revenue) {
+            alert(`Date: ${date}\nRevenue: $${revenue.toFixed(2)}`);
+        }
+
+        function showSegmentDetails(segment) {
+            alert(`Segment: ${segment.segment}\nCustomers: ${segment.customer_count}\nRevenue: $${formatNumber(segment.total_revenue)}`);
+        }
+
+        // =============================================
+        // CLEANUP
+        // =============================================
+        window.onbeforeunload = function() {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+            }
+        };
+    </script>
+</body>
+</html>

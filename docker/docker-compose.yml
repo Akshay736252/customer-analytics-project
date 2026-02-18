@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: customer_analytics_db
+    environment:
+      POSTGRES_DB: customer_analytics
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: YourNewPassword123  # Your updated password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql/create_tables.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: .
+    container_name: customer_analytics_api
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: customer_analytics
+      DATABASE_USER: postgres
+      DATABASE_PASSWORD: YourNewPassword123  # Your updated password
+    volumes:
+      - ./data:/app/data
+    command: uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+
+  dashboard:
+    image: nginx:alpine
+    container_name: customer_analytics_dashboard
+    ports:
+      - "3000:80"
+    volumes:
+      - ./dashboard:/usr/share/nginx/html
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

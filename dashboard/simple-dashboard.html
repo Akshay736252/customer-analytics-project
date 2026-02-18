@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard Test</title>
+</head>
+<body>
+    <h1>Testing Dashboard Connection</h1>
+    <div id="status"></div>
+    <div id="data"></div>
+
+    <script>
+        async function checkAPI() {
+            const status = document.getElementById('status');
+            const data = document.getElementById('data');
+            
+            status.innerHTML = '🔄 Checking API connection...';
+            
+            try {
+                // Test multiple endpoints
+                const endpoints = [
+                    'http://127.0.0.1:8000/api/health',
+                    'http://127.0.0.1:8000/api/sales/summary',
+                    'http://127.0.0.1:8000/api/customers/rfm/stats/overview',
+                    'http://127.0.0.1:8000/api/forecast/summary'
+                ];
+                
+                for (const endpoint of endpoints) {
+                    try {
+                        const res = await fetch(endpoint);
+                        const json = await res.json();
+                        status.innerHTML += `<br>✅ ${endpoint} - OK`;
+                        data.innerHTML += `<pre>${endpoint}\n${JSON.stringify(json, null, 2)}</pre>`;
+                    } catch (e) {
+                        status.innerHTML += `<br>❌ ${endpoint} - Failed: ${e.message}`;
+                    }
+                }
+            } catch (error) {
+                status.innerHTML = `❌ Error: ${error.message}`;
+            }
+        }
+        
+        checkAPI();
+    </script>
+</body>
+</html>
